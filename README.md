@@ -1,21 +1,48 @@
-# LibElixir
+# `lib_elixir`
 
-**TODO: Add description**
+**EXPERIMENTAL:** This library should not be used yet.
+It is broken in a number of ways and serves mainly as a proof-of-concept.
 
-## Installation
+## Setup
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `lib_elixir` to your list of dependencies in `mix.exs`:
+Here's how you can try this out:
 
-```elixir
-def deps do
-  [
-    {:lib_elixir, "~> 0.1.0"}
-  ]
-end
-```
+1. Clone this repo and add `:lib_elixir` to your list of dependencies as a path dependency:
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/lib_elixir>.
+    ```elixir
+    def deps do
+      [
+        {:lib_elixir, path: "path/to/lib_elixir"}
+      ]
+    end
+    ```
 
+2. Add a `:lib_elixir` with a namespace module and Elixir ref to your `mix.exs` project:
+
+    ```elixir
+    def project do
+      [
+        ...,
+        lib_elixir: [{My.Project.LibElixir, "v1.17.2"}]
+      ]
+    end
+    ```
+
+3. Use Elixir modules available under the chosen namespace:
+
+    ```elixir
+    alias My.Project.LibElixir.Macro, as: Macro
+
+    struct(Macro.Env, Map.from_struct(__ENV__))
+    #=> %My.Project.LibElixir.Macro.Env{...}
+    ```
+
+4. Compile and run without protocol consolidation (which is currently broken):
+
+    ```sh
+    # Compile for desired environment without protocol consolidation
+    $ MIX_ENV=test mix compile --no-protocol-consolidation
+
+    # Run mix commands without additional compilation
+    $ mix test --no-compile
+    ```
