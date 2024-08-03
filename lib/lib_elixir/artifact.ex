@@ -1,8 +1,6 @@
 defmodule LibElixir.Artifact do
   @moduledoc false
 
-  alias LibElixir.Namespace
-
   require Logger
 
   @base_url "https://github.com/elixir-lang/elixir/archive"
@@ -35,32 +33,6 @@ defmodule LibElixir.Artifact do
   """
   def extract_archive!(archive_path, directory) do
     :ok = :erl_tar.extract(archive_path, [:compressed, {:cwd, directory}])
-  end
-
-  @doc """
-  Returns the full path to a code archive.
-  """
-  def ez_path(ref, name) do
-    app_name = Namespace.app_name(name)
-    cache_path(Path.join("code_archives", ref), "#{app_name}.ez")
-  end
-
-  @doc """
-  Compresses the given directory to create a code archive.
-  """
-  def compress_ez!(ez_path, path) do
-    original_cwd = File.cwd!()
-    directory = Path.basename(path)
-
-    File.cd!(Path.dirname(path))
-
-    {:ok, _} =
-      :zip.create(ez_path, [String.to_charlist(directory)],
-        compress: :all,
-        uncompress: [".beam", ".app"]
-      )
-
-    File.cd!(original_cwd)
   end
 
   @doc """

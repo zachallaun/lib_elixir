@@ -15,14 +15,14 @@ defmodule Mix.Tasks.Compile.LibElixir do
     manifest = get_manifest()
 
     case required_lib_elixir(manifest) do
-      {:ok, {module, ref}} ->
+      {:ok, {module, ref, targets}} ->
         info("Compiling #{inspect(module)} (Elixir #{ref})")
 
         # clean_lib(module)
-        compile(module, ref)
+        compile(module, ref, targets)
 
         manifest
-        |> put_in([:libs, module], ref)
+        |> put_in([:libs, module], %{ref: ref, targets: targets})
         |> write_manifest!()
 
         :ok
@@ -44,51 +44,24 @@ defmodule Mix.Tasks.Compile.LibElixir do
     :ok
   end
 
-  def compile(module, ref) do
+  def compile(module, ref, targets) do
     archive_path = Artifact.download_elixir_archive!(ref)
 
     with_tmp_dir(fn tmp_dir ->
       Artifact.extract_archive!(archive_path, tmp_dir)
-
       # The only top-level directory after extracting the archive
       # is the Elixir source directory
       [source_dir] = File.ls!(tmp_dir)
       source_dir = Path.join(tmp_dir, source_dir)
 
+      target_dir = Path.join([Mix.Project.build_path(), "lib", "lib_elixir", "ebin"])
+
       ebin_path = compile_elixir_stdlib!(source_dir)
-      Namespace.apply!(ebin_path, module)
 
-      ez_path = Artifact.ez_path(ref, module)
-      container_name = ez_path |> Path.basename() |> Path.rootname()
-      container_path = Path.join(tmp_dir, container_name)
-      container_ebin = Path.join(container_path, "ebin")
-
-      File.mkdir_p!(container_ebin)
-      File.cp_r!(ebin_path, container_ebin)
-      Artifact.compress_ez!(ez_path, container_path)
-
-      extract_ez(ez_path)
+      Namespace.transform!(targets, module, ebin_path, target_dir)
     end)
 
     :ok
-  end
-
-  defp extract_ez(ez_path) do
-    ez_name = Path.basename(ez_path)
-    target_dir = Path.join(Mix.Project.build_path(), "lib")
-
-    IO.inspect(target_dir, label: "target_dir")
-
-    target_ez = Path.join(target_dir, ez_name)
-
-    File.cp!(ez_path, target_ez)
-    {:ok, _} = :zip.unzip(~c"#{target_ez}", cwd: ~c"#{target_dir}")
-
-    ez_root = Path.rootname(ez_name)
-    File.cp_r!(Path.join(target_dir, ez_root), Path.join(target_dir, "lib_elixir"))
-    File.rm_rf!(Path.join(target_dir, ez_root))
-
-    File.rm!(target_ez)
   end
 
   defp compile_elixir_stdlib!(source_dir) do
@@ -136,23 +109,15 @@ defmodule Mix.Tasks.Compile.LibElixir do
     File.write!(manifest_path(), :erlang.term_to_binary(manifest))
   end
 
-  # defp clean_lib(module) do
-  #   File.rm_rf(lib_path(module))
-  #   :ok
-  # end
-
-  # defp lib_path(module) do
-  #   app = Namespace.app_name(module)
-
-  #   Path.join([Mix.Project.build_path(), "lib", to_string(app)])
-  # end
-
   defp required_lib_elixir(manifest) do
-    with {:ok, [{module, ref}]} <- Keyword.fetch(parent_config(), :lib_elixir),
-         false <- manifest.libs[module] == ref do
-      {:ok, {module, ref}}
-    else
-      _ -> :error
+    with {:ok, [{module, ref, targets}]} <- Keyword.fetch(config(), :lib_elixir) do
+      manifest_lib = Map.get(manifest.libs, module, %{ref: nil, targets: []})
+
+      if manifest_lib.ref == ref and targets -- manifest_lib.targets == [] do
+        :error
+      else
+        {:ok, {module, ref, targets}}
+      end
     end
   end
 
@@ -160,8 +125,7 @@ defmodule Mix.Tasks.Compile.LibElixir do
     Mix.shell().info("[lib_elixir] #{message}")
   end
 
-  defp parent_config do
-    {_, %{config: parent_config}} = Mix.ProjectStack.top_and_bottom()
-    parent_config
+  defp config do
+    Mix.Project.config()
   end
 end

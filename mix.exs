@@ -6,7 +6,6 @@ defmodule LibElixir.MixProject do
       app: :lib_elixir,
       version: "0.1.0",
       elixir: ">= 1.13.4",
-      compilers: Mix.compilers() ++ [:lib_elixir],
       start_permanent: Mix.env() == :prod,
       deps: deps()
     ]
@@ -22,7 +21,8 @@ defmodule LibElixir.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:req, "~> 0.5.0"}
+      {:req, "~> 0.5.0"},
+      {:mneme, ">= 0.0.0", only: [:dev, :test]}
     ]
   end
 end

@@ -1,100 +1,157 @@
 defmodule LibElixir.Namespace do
-  @moduledoc """
-  This task is used after a release is assembled, and investigates the remote_control
-  app for its dependencies, at which point it applies transformers to various parts of the
-  app.
+  @moduledoc false
 
-  Transformers take a path, find their relevant files and apply transforms to them. For example,
-  the Beams transformer will find any instances of modules in .beam files, and will apply namepaces
-  to them if the module is one of the modules defined in a dependency.
-
-  This task takes a single argument, which is the full path to the release.
-  """
-
+  alias LibElixir.Namespace.Abstract
   alias LibElixir.Namespace.Transform
 
-  require Logger
+  defstruct [:module, :source_dir, :target_dir, :known_module_names, :targets]
 
-  @root_modules_key {__MODULE__, :root_modules}
-  @namespaces_key {__MODULE__, :namespaces}
+  @ignore_module_names [Kernel, Access] |> Enum.map(&to_string/1)
+  @ignore_protocol_names [Inspect, Collectable, Enumerable, List.Chars, String.Chars]
+                         |> Enum.map(&to_string/1)
 
-  def apply!(base_directory, elixir_namespace) do
-    set_root_modules!(base_directory)
-    set_namespaces!(elixir_namespace)
+  @doc """
+  Recursively namespaces modules in the `targets` list using `module` as
+  the namespace prefix, writing the transformed beams to `target_dir`.
+  """
+  def transform!(targets, module, source_dir, target_dir) do
+    ns = new(module, source_dir, target_dir)
+    :ok = Transform.Apps.apply_to_all(ns)
 
-    Transform.Apps.apply_to_all(base_directory)
-    Transform.Beams.apply_to_all(base_directory)
-    Transform.AppDirectories.apply_to_all(base_directory)
-
-    :ok
+    transform(targets, ns, fn _, target_path, binary ->
+      :ok = File.write(target_path, binary, [:binary, :raw])
+    end)
   end
 
-  def app_names do
-    [:elixir]
+  @doc """
+  Recursively namespaces modules in the `targets` list using `module` as
+  the namespace prefix.
+
+  Calls `fun` with three arguments: `namespaced_module, target_path, binary`.
+  """
+  def transform(targets, module, source_dir, target_dir, fun)
+      when is_list(targets) and is_atom(module) and is_function(fun, 3) do
+    ns = new(module, source_dir, target_dir)
+    transform(targets, ns, fun)
   end
 
-  def elixir_root_modules do
-    :persistent_term.get(@root_modules_key).elixir
+  def transform(targets, %__MODULE__{} = ns, fun) do
+    case Enum.reject(targets, &should_namespace?(ns, &1)) do
+      [] ->
+        :ok
+
+      invalid ->
+        raise ArgumentError, message: "cannot transform targets: #{inspect(invalid)}"
+    end
+
+    fan_out_transform(targets, ns, fun)
   end
 
-  def erlang_root_modules do
-    :persistent_term.get(@root_modules_key).erlang
+  defp fan_out_transform(targets, ns, fun, transformed \\ MapSet.new())
+
+  defp fan_out_transform([], _ns, _fun, transformed) do
+    Enum.to_list(transformed)
   end
 
-  def set_root_modules!(base_directory) do
-    root_modules =
-      base_directory
-      |> File.ls!()
-      |> Enum.map(fn
-        "Elixir." <> elixir_module ->
-          [root_module, _] = String.split(elixir_module, ".", parts: 2)
-          {:elixir, Module.concat([root_module])}
+  defp fan_out_transform(targets, ns, fun, transformed) do
+    namespace_target =
+      fn target ->
+        if target in transformed do
+          MapSet.new()
+        else
+          Mix.shell().info("[lib_elixir] Namespacing #{inspect(target)}")
+          forms = ns |> source_path(target) |> Abstract.read!()
+          {rewritten, new_deps} = Abstract.rewrite(forms, ns)
+          {:ok, namespaced_module, binary} = Abstract.compile(rewritten)
 
-        erlang_file ->
-          {:erlang, erlang_file |> Path.rootname() |> String.to_atom()}
+          fun.(namespaced_module, target_path(ns, namespaced_module), binary)
+
+          new_deps
+        end
+      end
+
+    deps =
+      targets
+      |> Task.async_stream(namespace_target, timeout: :infinity)
+      |> Enum.reduce(MapSet.new(), fn {:ok, new_deps}, deps ->
+        MapSet.union(deps, new_deps)
       end)
-      |> Enum.uniq()
-      |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
 
-    special_root_modules = [BitString]
-    root_modules = update_in(root_modules.elixir, &(special_root_modules ++ &1))
+    transformed = MapSet.union(transformed, MapSet.new(targets))
 
-    :persistent_term.put(@root_modules_key, root_modules)
+    deps
+    |> MapSet.difference(transformed)
+    |> Enum.to_list()
+    |> fan_out_transform(ns, fun, transformed)
   end
 
-  def elixir_namespace do
-    :persistent_term.get(@namespaces_key).elixir
+  def new(module, source_dir, target_dir) do
+    known_module_names =
+      source_dir
+      |> Path.join("*")
+      |> Path.wildcard()
+      |> Enum.map(fn path ->
+        path |> Path.basename() |> Path.rootname()
+      end)
+      |> MapSet.new()
+
+    %__MODULE__{
+      module: module,
+      source_dir: source_dir,
+      target_dir: target_dir,
+      known_module_names: known_module_names
+    }
   end
 
-  def erlang_namespace do
-    :persistent_term.get(@namespaces_key).erlang
+  def source_path(%__MODULE__{} = ns, module) do
+    module_name = to_string(module)
+    ns.source_dir |> Path.join("#{module_name}.beam") |> Path.expand()
   end
 
-  def app_name(elixir_namespace) do
-    :"#{erlang_namespace_name(elixir_namespace)}elixir"
+  def target_path(%__MODULE__{} = ns, namespaced_module, ext \\ "beam") do
+    ns.target_dir |> Path.join("#{namespaced_module}.#{ext}") |> Path.expand()
   end
 
-  def elixir_namespace_name(elixir_namespace) do
-    case to_string(elixir_namespace) do
-      "Elixir." <> namespace -> "#{namespace}."
-      namespace -> "#{namespace}."
+  def module_kind(module) when is_atom(module), do: module |> to_string() |> module_kind()
+  def module_kind("Elixir." <> _), do: :elixir
+  def module_kind(_), do: :erlang
+
+  def should_namespace?(%__MODULE__{} = ns, module) do
+    module_name = to_string(module)
+    module_name in ns.known_module_names and not should_ignore?(module_name)
+  end
+
+  defp should_ignore?(module_name) when is_binary(module_name) do
+    module_name in @ignore_module_names or protocol_or_impl?(module_name)
+  end
+
+  # special cases
+  defp protocol_or_impl?("Elixir.Inspect.Opts"), do: false
+  defp protocol_or_impl?("Elixir.Inspect.Algebra"), do: false
+
+  for protocol <- @ignore_protocol_names do
+    defp protocol_or_impl?(unquote(protocol)), do: true
+    defp protocol_or_impl?(unquote(protocol) <> "." <> _), do: true
+  end
+
+  defp protocol_or_impl?(_), do: false
+
+  def namespace_module(%__MODULE__{} = ns, module) do
+    case module_kind(module) do
+      :elixir -> Module.concat([ns.module, module])
+      :erlang -> namespace_erlang(ns, module)
     end
   end
 
-  def erlang_namespace_name(elixir_namespace) do
-    elixir_namespace
-    |> Macro.underscore()
-    |> String.replace("/", "_")
-    |> then(&(&1 <> "_"))
-  end
+  defp namespace_erlang(%__MODULE__{} = ns, module) do
+    prefix =
+      ns.module
+      |> Macro.underscore()
+      |> String.replace("/", "_")
 
-  def set_namespaces!(elixir_namespace) do
-    ex_namespace_string = elixir_namespace_name(elixir_namespace)
-    erl_namespace_string = erlang_namespace_name(elixir_namespace)
-
-    :persistent_term.put(@namespaces_key, %{
-      elixir: ex_namespace_string,
-      erlang: erl_namespace_string
-    })
+    case to_string(module) do
+      "elixir" <> rest -> :"#{prefix}#{rest}"
+      module -> :"#{prefix}_#{module}"
+    end
   end
 end

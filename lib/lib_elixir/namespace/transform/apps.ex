@@ -5,75 +5,68 @@ defmodule LibElixir.Namespace.Transform.Apps do
   alias LibElixir.Namespace
   alias LibElixir.Namespace.Transform
 
-  def apply_to_all(base_directory) do
-    base_directory
+  def apply_to_all(%Namespace{} = ns) do
+    ns.source_dir
     |> find_app_files()
     |> tap(fn app_files ->
       Mix.Shell.IO.info("Rewriting #{length(app_files)} app files")
     end)
-    |> Enum.each(&apply/1)
+    |> Enum.each(&apply_to_file(&1, ns))
   end
 
-  def apply(file_path) do
+  def apply_to_file(file_path, %Namespace{} = ns) do
+    app_name =
+      file_path
+      |> Path.basename()
+      |> Path.rootname()
+      |> String.to_atom()
+
+    namespaced_app = Namespace.namespace_module(ns, app_name)
+
+    target_path = Namespace.target_path(ns, namespaced_app, "app")
+
     with {:ok, app_definition} <- Transform.Erlang.path_to_term(file_path),
-         {:ok, converted} <- convert(app_definition),
-         :ok <- File.write(file_path, converted) do
-      app_name =
-        file_path
-        |> Path.basename()
-        |> Path.rootname()
-        |> String.to_atom()
-
-      namespaced_app_name = Namespace.Module.apply(app_name)
-      new_filename = "#{namespaced_app_name}.app"
-
-      new_file_path =
-        file_path
-        |> Path.dirname()
-        |> Path.join(new_filename)
-
-      File.rename!(file_path, new_file_path)
+         {:ok, converted} <- convert(app_definition, ns) do
+      File.write(target_path, converted)
     end
   end
 
   defp find_app_files(base_directory) do
-    app_files_glob = Enum.join(Namespace.app_names(), ",")
-
-    [base_directory, "**", "{#{app_files_glob}}.app"]
+    [base_directory, "**", "*.app"]
     |> Path.join()
     |> Path.wildcard()
   end
 
-  defp convert(app_definition) do
+  defp convert(app_definition, ns) do
     erlang_terms =
       app_definition
-      |> visit()
+      |> visit(ns)
       |> Transform.Erlang.term_to_string()
 
     {:ok, erlang_terms}
   end
 
-  defp visit({:application, app_name, keys}) do
-    {:application, Namespace.Module.apply(app_name), Enum.map(keys, &visit/1)}
+  defp visit({:application, app_name, keys}, ns) do
+    {:application, Namespace.namespace_module(ns, app_name), Enum.map(keys, &visit(&1, ns))}
   end
 
-  defp visit({:applications, app_list}) do
-    {:applications, Enum.map(app_list, &Namespace.Module.apply/1)}
+  defp visit({:applications, app_list}, ns) do
+    {:applications, Enum.map(app_list, &Namespace.namespace_module(ns, &1))}
   end
 
-  defp visit({:modules, module_list}) do
-    {:modules, Enum.map(module_list, &Namespace.Module.apply/1)}
+  defp visit({:modules, module_list}, ns) do
+    {:modules, Enum.map(module_list, &Namespace.namespace_module(ns, &1))}
   end
 
-  defp visit({:description, desc}) do
-    {:description, desc ++ ~c" namespaced by lexical."}
+  defp visit({:description, desc}, _ns) do
+    {:description, desc ++ ~c" namespaced by lib_elixir"}
   end
 
-  defp visit({:mod, {module_name, args}}) do
-    {:mod, {Namespace.Module.apply(module_name), args}}
+  defp visit({:mod, {module_name, args}}, ns) do
+    {:mod, {Namespace.namespace_module(ns, module_name), args}}
   end
 
-  defp visit(key_value) do
+  defp visit(key_value, _ns) do
     key_value
   end
 end
