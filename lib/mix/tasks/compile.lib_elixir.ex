@@ -53,7 +53,6 @@ defmodule Mix.Tasks.Compile.LibElixir do
       # is the Elixir source directory
       [source_dir] = File.ls!(tmp_dir)
       source_dir = Path.join(tmp_dir, source_dir)
-
       target_dir = Path.join([Mix.Project.build_path(), "lib", "lib_elixir", "ebin"])
 
       ebin_path = compile_elixir_stdlib!(source_dir)
@@ -110,7 +109,7 @@ defmodule Mix.Tasks.Compile.LibElixir do
   end
 
   defp required_lib_elixir(manifest) do
-    with {:ok, [{module, ref, targets}]} <- Keyword.fetch(config(), :lib_elixir) do
+    with {:ok, {module, ref, targets}} <- Keyword.fetch(config(), :lib_elixir) do
       manifest_lib = Map.get(manifest.libs, module, %{ref: nil, targets: []})
 
       if manifest_lib.ref == ref and targets -- manifest_lib.targets == [] do

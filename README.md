@@ -23,7 +23,7 @@ Here's how you can try this out:
     def project do
       [
         ...,
-        lib_elixir: [{My.Project.LibElixir, "v1.17.2", [Macro, Macro.Env]}]
+        lib_elixir: {My.Project.LibElixir, "v1.17.2", [Macro, Macro.Env]}
       ]
     end
     ```

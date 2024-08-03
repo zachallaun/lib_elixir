@@ -1,8 +1,7 @@
 defmodule LibElixir.Namespace do
   @moduledoc false
 
-  alias LibElixir.Namespace.Abstract
-  alias LibElixir.Namespace.Transform
+  alias LibElixir.Namespace
 
   defstruct [:module, :source_dir, :target_dir, :known_module_names, :targets]
 
@@ -16,7 +15,8 @@ defmodule LibElixir.Namespace do
   """
   def transform!(targets, module, source_dir, target_dir) do
     ns = new(module, source_dir, target_dir)
-    :ok = Transform.Apps.apply_to_all(ns)
+
+    :ok = Namespace.App.rewrite(:elixir, ns)
 
     transform(targets, ns, fn _, target_path, binary ->
       :ok = File.write(target_path, binary, [:binary, :raw])
@@ -60,9 +60,9 @@ defmodule LibElixir.Namespace do
           MapSet.new()
         else
           Mix.shell().info("[lib_elixir] Namespacing #{inspect(target)}")
-          forms = ns |> source_path(target) |> Abstract.read!()
-          {rewritten, new_deps} = Abstract.rewrite(forms, ns)
-          {:ok, namespaced_module, binary} = Abstract.compile(rewritten)
+          forms = ns |> source_path(target) |> Namespace.Abstract.read!()
+          {rewritten, new_deps} = Namespace.Abstract.rewrite(forms, ns)
+          {:ok, namespaced_module, binary} = Namespace.Abstract.compile(rewritten)
 
           fun.(namespaced_module, target_path(ns, namespaced_module), binary)
 
@@ -103,9 +103,9 @@ defmodule LibElixir.Namespace do
     }
   end
 
-  def source_path(%__MODULE__{} = ns, module) do
+  def source_path(%__MODULE__{} = ns, module, ext \\ "beam") do
     module_name = to_string(module)
-    ns.source_dir |> Path.join("#{module_name}.beam") |> Path.expand()
+    ns.source_dir |> Path.join("#{module_name}.#{ext}") |> Path.expand()
   end
 
   def target_path(%__MODULE__{} = ns, namespaced_module, ext \\ "beam") do
