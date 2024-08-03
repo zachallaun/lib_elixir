@@ -17,13 +17,13 @@ Here's how you can try this out:
     end
     ```
 
-2. Add a `:lib_elixir` with a namespace module and Elixir ref to your `mix.exs` project:
+2. Add a `:lib_elixir` with a namespace module, Elixir ref, and target modules to your `mix.exs` project:
 
     ```elixir
     def project do
       [
         ...,
-        lib_elixir: [{My.Project.LibElixir, "v1.17.2"}]
+        lib_elixir: [{My.Project.LibElixir, "v1.17.2", [Macro, Macro.Env]}]
       ]
     end
     ```
