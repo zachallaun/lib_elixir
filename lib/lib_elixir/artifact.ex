@@ -44,9 +44,9 @@ defmodule LibElixir.Artifact do
     archive_path = elixir_archive_path(ref)
 
     if exists?(archive_path) do
-      Mix.shell().info("[lib_elixir] Using cached Elixir archive: #{archive_path}")
+      Mix.shell().info("Using cached Elixir archive: #{archive_path}")
     else
-      Mix.shell().info("[lib_elixir] Downloading Elixir archive to: #{archive_path}")
+      Mix.shell().info("Downloading Elixir archive to: #{archive_path}")
 
       archive_stream = File.stream!(archive_path, [:write])
       archive_name = Path.basename(archive_path)

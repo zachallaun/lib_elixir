@@ -16,9 +16,6 @@ defmodule Mix.Tasks.Compile.LibElixir do
 
     case required_lib_elixir(manifest) do
       {:ok, {module, ref, targets}} ->
-        info("Compiling #{inspect(module)} (Elixir #{ref})")
-
-        # clean_lib(module)
         compile(module, ref, targets)
 
         manifest
@@ -28,7 +25,7 @@ defmodule Mix.Tasks.Compile.LibElixir do
         :ok
 
       _ ->
-        info("Nothing to compile")
+        Mix.shell().info("Nothing to compile")
         :noop
     end
   end
@@ -55,6 +52,7 @@ defmodule Mix.Tasks.Compile.LibElixir do
       source_dir = Path.join(tmp_dir, source_dir)
       target_dir = Path.join([Mix.Project.build_path(), "lib", "lib_elixir", "ebin"])
 
+      Mix.shell().info("Compiling #{inspect(module)} (Elixir #{ref})")
       ebin_path = compile_elixir_stdlib!(source_dir)
 
       Namespace.transform!(targets, module, ebin_path, target_dir)
@@ -118,10 +116,6 @@ defmodule Mix.Tasks.Compile.LibElixir do
         {:ok, {module, ref, targets}}
       end
     end
-  end
-
-  defp info(message) do
-    Mix.shell().info("[lib_elixir] #{message}")
   end
 
   defp config do

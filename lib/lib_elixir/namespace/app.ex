@@ -4,7 +4,9 @@ defmodule LibElixir.Namespace.App do
   alias LibElixir.Namespace
 
   @doc """
-  Reads and namespaces the given `app`, returning a binary.
+  Reads and namespaces the given `app`, writing to the new target path.
+
+  Returns the namespaced app name.
   """
   def rewrite(app, %Namespace{} = ns) do
     namespaced_app = Namespace.namespace_module(ns, app)

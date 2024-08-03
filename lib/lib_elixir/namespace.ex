@@ -18,8 +18,16 @@ defmodule LibElixir.Namespace do
 
     :ok = Namespace.App.rewrite(:elixir, ns)
 
-    transform(targets, ns, fn _, target_path, binary ->
-      :ok = File.write(target_path, binary, [:binary, :raw])
+    Mix.shell().info("Converting modules")
+
+    transform(targets, ns, fn module, namespaced, target_path, binary ->
+      if module in targets do
+        Mix.shell().info("  [target] #{inspect(module)} => #{inspect(namespaced)}")
+      else
+        Mix.shell().info("           #{inspect(module)} => #{inspect(namespaced)}")
+      end
+
+      :ok = File.write!(target_path, binary, [:binary, :raw])
     end)
   end
 
@@ -27,10 +35,10 @@ defmodule LibElixir.Namespace do
   Recursively namespaces modules in the `targets` list using `module` as
   the namespace prefix.
 
-  Calls `fun` with three arguments: `namespaced_module, target_path, binary`.
+  Calls `fun` with three arguments: `module, namespaced_module, target_path, binary`.
   """
   def transform(targets, module, source_dir, target_dir, fun)
-      when is_list(targets) and is_atom(module) and is_function(fun, 3) do
+      when is_list(targets) and is_atom(module) and is_function(fun, 4) do
     ns = new(module, source_dir, target_dir)
     transform(targets, ns, fun)
   end
@@ -59,12 +67,11 @@ defmodule LibElixir.Namespace do
         if target in transformed do
           MapSet.new()
         else
-          Mix.shell().info("[lib_elixir] Namespacing #{inspect(target)}")
           forms = ns |> source_path(target) |> Namespace.Abstract.read!()
           {rewritten, new_deps} = Namespace.Abstract.rewrite(forms, ns)
-          {:ok, namespaced_module, binary} = Namespace.Abstract.compile(rewritten)
+          {:ok, namespaced, binary} = Namespace.Abstract.compile(rewritten)
 
-          fun.(namespaced_module, target_path(ns, namespaced_module), binary)
+          fun.(target, namespaced, target_path(ns, namespaced), binary)
 
           new_deps
         end
