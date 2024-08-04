@@ -17,12 +17,13 @@ Here's how you can try this out:
     end
     ```
 
-2. Add a `:lib_elixir` with a namespace module, Elixir ref, and target modules to your `mix.exs` project:
+2. Add `:lib_elixir` config and compiler to your project:
 
     ```elixir
     def project do
       [
         ...,
+        compilers: [:lib_elixir] ++ Mix.compilers(),
         lib_elixir: [
           namespace: My.Project.LibElixir,
           ref: "v1.17.2",
