@@ -5,7 +5,7 @@ defmodule LibElixir.Namespace do
 
   defstruct [:module, :source_dir, :target_dir, :known_module_names, :targets]
 
-  @ignore_module_names [Kernel, Access] |> Enum.map(&to_string/1)
+  @ignore_module_names [Kernel, Access, List, Tuple] |> Enum.map(&to_string/1)
   @ignore_protocol_names [Inspect, Collectable, Enumerable, List.Chars, String.Chars]
                          |> Enum.map(&to_string/1)
 

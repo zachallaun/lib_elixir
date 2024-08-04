@@ -25,7 +25,6 @@ defmodule Mix.Tasks.Compile.LibElixir do
         :ok
 
       _ ->
-        Mix.shell().info("Nothing to compile")
         :noop
     end
   end
@@ -50,7 +49,7 @@ defmodule Mix.Tasks.Compile.LibElixir do
       # is the Elixir source directory
       [source_dir] = File.ls!(tmp_dir)
       source_dir = Path.join(tmp_dir, source_dir)
-      target_dir = Path.join([Mix.Project.build_path(), "lib", "lib_elixir", "ebin"])
+      target_dir = Mix.Project.compile_path()
 
       Mix.shell().info("Compiling #{inspect(module)} (Elixir #{ref})")
       ebin_path = compile_elixir_stdlib!(source_dir)

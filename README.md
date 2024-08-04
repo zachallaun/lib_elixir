@@ -12,7 +12,7 @@ Here's how you can try this out:
     ```elixir
     def deps do
       [
-        {:lib_elixir, path: "path/to/lib_elixir"}
+        {:lib_elixir, path: "path/to/lib_elixir", runtime: false}
       ]
     end
     ```
