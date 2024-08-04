@@ -23,7 +23,11 @@ Here's how you can try this out:
     def project do
       [
         ...,
-        lib_elixir: {My.Project.LibElixir, "v1.17.2", [Macro, Macro.Env]}
+        lib_elixir: [
+          namespace: My.Project.LibElixir,
+          ref: "v1.17.2",
+          modules: [Macro, Macro.Env]
+        ]
       ]
     end
     ```
@@ -35,14 +39,4 @@ Here's how you can try this out:
 
     struct(Macro.Env, Map.from_struct(__ENV__))
     #=> %My.Project.LibElixir.Macro.Env{...}
-    ```
-
-4. Compile and run without protocol consolidation (which is currently broken):
-
-    ```sh
-    # Compile for desired environment without protocol consolidation
-    $ MIX_ENV=test mix compile --no-protocol-consolidation
-
-    # Run mix commands without additional compilation
-    $ mix test --no-compile
     ```

@@ -106,7 +106,12 @@ defmodule Mix.Tasks.Compile.LibElixir do
   end
 
   defp required_lib_elixir(manifest) do
-    with {:ok, {module, ref, targets}} <- Keyword.fetch(config(), :lib_elixir) do
+    with {:ok, config} <- Keyword.fetch(config(), :lib_elixir) do
+      Keyword.validate!(config, [:namespace, :ref, :modules])
+      module = config[:namespace] || raise ":lib_elixir config must have `:namespace`"
+      ref = config[:ref] || raise ":lib_elixir config must have `:ref`"
+      targets = config[:modules] || raise ":lib_elixir config must have `:modules`"
+
       manifest_lib = Map.get(manifest.libs, module, %{ref: nil, targets: []})
 
       if manifest_lib.ref == ref and targets -- manifest_lib.targets == [] do
