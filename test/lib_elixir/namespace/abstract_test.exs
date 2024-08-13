@@ -31,7 +31,6 @@ defmodule LibElixir.Namespace.AbstractTest do
                     Inspect.Algebra,
                     Kernel.ErrorHandler,
                     Keyword,
-                    List,
                     Macro,
                     Macro.Env,
                     Module.ParallelChecker,

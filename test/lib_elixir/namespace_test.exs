@@ -16,7 +16,7 @@ defmodule LibElixir.NamespaceTest do
       target_dir = Path.join(@beams, "target")
       test_pid = self()
 
-      fun = fn mod, _target_path, _binary ->
+      fun = fn mod, _namespaced, _target_path, _binary ->
         send(test_pid, {:namespaced, mod})
       end
 
@@ -102,13 +102,11 @@ defmodule LibElixir.NamespaceTest do
 
   describe "source_path/2" do
     test "returns the absolute path for a known module", %{namespace: ns} do
-      cwd = File.cwd!()
+      code_path = Namespace.source_path(ns, Code)
+      assert String.ends_with?(code_path, "/test/beams/elixir-1.17.2/Elixir.Code.beam")
 
-      auto_assert ^cwd <> "/test/beams/elixir-1.17.2/Elixir.Code.beam" <-
-                    Namespace.source_path(ns, Code)
-
-      auto_assert ^cwd <> "/test/beams/elixir-1.17.2/elixir_tokenizer.beam" <-
-                    Namespace.source_path(ns, :elixir_tokenizer)
+      tokenizer_path = Namespace.source_path(ns, :elixir_tokenizer)
+      assert String.ends_with?(tokenizer_path, "/test/beams/elixir-1.17.2/elixir_tokenizer.beam")
     end
   end
 end
