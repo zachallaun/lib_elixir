@@ -41,52 +41,13 @@ defmodule Mix.Tasks.Compile.LibElixir do
   end
 
   def compile(module, ref, targets) do
-    archive_path = Artifact.download_elixir_archive!(ref)
+    artifact = Artifact.prepare!(ref)
 
-    with_tmp_dir(fn tmp_dir ->
-      Artifact.extract_archive!(archive_path, tmp_dir)
-      # The only top-level directory after extracting the archive
-      # is the Elixir source directory
-      [source_dir] = File.ls!(tmp_dir)
-      source_dir = Path.join(tmp_dir, source_dir)
-      target_dir = Mix.Project.compile_path()
+    target_directory = Mix.Project.compile_path()
 
-      Mix.shell().info("Compiling #{inspect(module)} (Elixir #{ref})")
-      ebin_path = compile_elixir_stdlib!(source_dir)
-
-      Namespace.transform!(targets, module, ebin_path, target_dir)
-    end)
+    Namespace.transform!(targets, module, artifact.ebin_directory, target_directory)
 
     :ok
-  end
-
-  defp compile_elixir_stdlib!(source_dir) do
-    case System.cmd("make", ["clean", "erlang", "app", "stdlib"], cd: source_dir) do
-      {_, 0} ->
-        ebin_path = Path.join([source_dir, "lib", "elixir", "ebin"])
-
-        # Remove `lib_iex.beam`; we don't want it.
-        ebin_path |> Path.join("*iex.beam") |> Path.wildcard() |> Enum.each(&File.rm!/1)
-
-        ebin_path
-
-      {output, non_zero} ->
-        raise CompileError,
-          message: "Unable to build Elixir, make returned:\nexit: #{non_zero}\noutput: #{output}"
-    end
-  end
-
-  defp with_tmp_dir(fun) when is_function(fun, 1) do
-    rand_string = 8 |> :crypto.strong_rand_bytes() |> Base.encode32(case: :lower, padding: false)
-    tmp_dir = Path.join([File.cwd!(), "tmp", rand_string])
-
-    File.mkdir_p!(tmp_dir)
-
-    try do
-      fun.(tmp_dir)
-    after
-      File.rm_rf!(tmp_dir)
-    end
   end
 
   defp manifest_path do

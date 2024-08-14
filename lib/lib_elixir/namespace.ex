@@ -18,17 +18,16 @@ defmodule LibElixir.Namespace do
 
     :ok = Namespace.App.rewrite(:elixir, ns)
 
-    Mix.shell().info("Converting modules")
+    Mix.shell().info("Namespacing modules (and their dependencies): #{inspect(targets)}")
 
-    transform(targets, ns, fn module, namespaced, target_path, binary ->
-      if module in targets do
-        Mix.shell().info("  [target] #{inspect(module)} => #{inspect(namespaced)}")
-      else
-        Mix.shell().info("           #{inspect(module)} => #{inspect(namespaced)}")
-      end
+    result =
+      transform(targets, ns, fn _module, _namespaced, target_path, binary ->
+        :ok = File.write!(target_path, binary, [:binary, :raw])
+      end)
 
-      :ok = File.write!(target_path, binary, [:binary, :raw])
-    end)
+    Mix.shell().info("Namespacing complete")
+
+    result
   end
 
   @doc """
