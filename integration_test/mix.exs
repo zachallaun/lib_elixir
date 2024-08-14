@@ -12,7 +12,7 @@ defmodule LibElixir.Integration.MixProject do
       lib_elixir: [
         namespace: LibElixir.V1_17,
         modules: [Macro.Env],
-        ref: "main"
+        ref: "v1.17.2"
       ]
     ]
   end

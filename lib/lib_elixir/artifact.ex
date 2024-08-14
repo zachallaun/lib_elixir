@@ -1,6 +1,7 @@
 defmodule LibElixir.Artifact do
   @moduledoc false
 
+  alias LibElixir.Downloader
   alias LibElixir.Logger
 
   @enforce_keys [:ref, :otp]
@@ -97,7 +98,6 @@ defmodule LibElixir.Artifact do
   defp download_precompiled!(%__MODULE__{} = artifact) do
     compiled_source_directory = compiled_source_directory(artifact)
     zip_path = Path.join(compiled_source_directory, "#{artifact.ref}.zip")
-    zip_stream = File.stream!(zip_path, [:write])
     url = Path.join(@precompiled_base_url, "#{artifact.ref}-otp-#{artifact.otp}.zip")
 
     Logger.debug("downloading precompiled: #{url}")
@@ -105,8 +105,9 @@ defmodule LibElixir.Artifact do
     Application.ensure_all_started(:req)
 
     try do
-      case Req.get(url: url, into: zip_stream, retry: false) do
-        {:ok, %Req.Response{status: 200}} ->
+      case Downloader.download(url) do
+        {:ok, content} ->
+          File.write!(zip_path, content)
           extract_zip!(zip_path, compiled_source_directory)
           set_existing_paths(artifact)
 
@@ -131,13 +132,13 @@ defmodule LibElixir.Artifact do
 
   defp download_source!(%__MODULE__{} = artifact) do
     source_zip_path = source_zip_path(artifact)
-    source_zip_stream = File.stream!(source_zip_path, [:write])
     source_zip_url = Path.join(@source_base_url, "#{artifact.ref}.zip")
 
     Application.ensure_all_started(:req)
 
     Logger.debug("downloading source: #{source_zip_url}")
-    %Req.Response{status: 200} = Req.get!(url: source_zip_url, into: source_zip_stream)
+    {:ok, content} = Downloader.download(source_zip_url)
+    File.write!(source_zip_path, content)
 
     set_existing_paths(artifact)
   end
