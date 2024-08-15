@@ -14,10 +14,12 @@ defmodule LibElixir.Integration.MixProject do
   end
 
   defp lib_elixir do
+    ref = System.get_env("LIB_ELIXIR_REF", "v1.17.2")
+
     [
       namespace: LibElixir.Integration.LibElixir,
       modules: [Macro.Env],
-      ref: "v1.17.2"
+      ref: ref
     ]
   end
 

@@ -95,10 +95,16 @@ defmodule LibElixir.Artifact do
     cache_dir
   end
 
-  defp download_precompiled!(%__MODULE__{} = artifact) do
+  defp download_precompiled!(%__MODULE__{} = artifact, include_otp? \\ true) do
     compiled_source_directory = compiled_source_directory(artifact)
     zip_path = Path.join(compiled_source_directory, "#{artifact.ref}.zip")
-    url = Path.join(@precompiled_base_url, "#{artifact.ref}-otp-#{artifact.otp}.zip")
+
+    url =
+      if include_otp? do
+        Path.join(@precompiled_base_url, "#{artifact.ref}-otp-#{artifact.otp}.zip")
+      else
+        Path.join(@precompiled_base_url, "#{artifact.ref}.zip")
+      end
 
     Logger.debug("downloading precompiled: #{url}")
 
@@ -112,8 +118,13 @@ defmodule LibElixir.Artifact do
           set_existing_paths(artifact)
 
         _ ->
-          Logger.debug("downloading precompiled failed, falling back to source")
-          download_and_compile_source!(artifact)
+          if include_otp? do
+            Logger.debug("downloading precompiled failed, trying without otp")
+            download_precompiled!(artifact, false)
+          else
+            Logger.debug("downloading precompiled failed, falling back to source")
+            download_and_compile_source!(artifact)
+          end
       end
     after
       File.rm(zip_path)
