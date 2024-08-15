@@ -58,6 +58,13 @@ defmodule LibElixir.Namespace.Abstract do
       _ ->
         raise "Could not read abstract forms from: #{path}"
     end
+  catch
+    :exit, reason ->
+      LibElixir.Logger.error(
+        "encountered exit (#{inspect(reason)}) while reading abstract code: #{path}"
+      )
+
+      exit(reason)
   end
 
   @doc """
@@ -122,5 +129,57 @@ defmodule LibElixir.Namespace.Abstract do
     else
       {module, deps}
     end
+  end
+
+  # handles a change to the representation of bitstring
+  # modifiers in debug info from {:binary, meta, []} to
+  # {:binary, meta, nil} that occurred on Elixir 1.15
+  @doc false
+  def maybe_patch_elixir_erl_pass!(target_version) do
+    if should_patch_elixir_erl_pass?(target_version) do
+      patch_elixir_erl_pass!()
+    end
+  end
+
+  @doc false
+  def patch_elixir_erl_pass! do
+    :persistent_term.put({__MODULE__, :patched?}, true)
+
+    Patch.Supervisor.start_link()
+
+    Patch.patch(:elixir_erl_pass, :extract_bit_type, fn any, list ->
+      try_extract_bit_type(any, list)
+    end)
+
+    :ok
+  end
+
+  defp try_extract_bit_type({name, meta, args}, list) do
+    extract_bit_type({name, meta, args}, list)
+  rescue
+    _ ->
+      try do
+        case args do
+          [] -> extract_bit_type({name, meta, nil}, list)
+          nil -> extract_bit_type({name, meta, []}, list)
+        end
+      rescue
+        e ->
+          IO.inspect({args, list}, label: "failed on")
+          reraise e, __STACKTRACE__
+      end
+  end
+
+  defp extract_bit_type(x, list) do
+    Patch.Mock.Naming.original(:elixir_erl_pass).extract_bit_type(x, list)
+  end
+
+  defp should_patch_elixir_erl_pass?(target_version) do
+    already_patched? = :persistent_term.get({__MODULE__, :patched?}, false)
+    current_version = Version.parse!(System.version())
+
+    not already_patched? and
+      ((current_version.minor < 15 and target_version.minor >= 15) or
+         (current_version.minor >= 15 and target_version.minor < 15))
   end
 end

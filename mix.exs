@@ -20,6 +20,7 @@ defmodule LibElixir.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:patch, "~> 0.13.1"},
       {:castore, "~> 0.1 or ~> 1.0", optional: true},
       {:mneme, ">= 0.0.0", only: [:dev, :test]}
     ]

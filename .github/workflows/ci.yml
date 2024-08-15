@@ -49,9 +49,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # test against the latest elixir and otp, and then against
+        # Test against the latest elixir and otp, and then against
         # every supported version of elixir with its earliest
-        # supported version of otp
+        # supported version of otp.
+        # Note: we skip 1.12 because a library used for testing
+        # requires 1.13+, but it's included in integration tests.
         include:
           - elixir: 1.17
             otp: 27
@@ -98,29 +100,32 @@ jobs:
         include:
           - elixir: 1.17
             otp: 27
-            ref: v1.13.4
+            ref: v1.14.5
           - elixir: 1.17
             otp: 27
             ref: v1.17.2
           - elixir: 1.17
             otp: 25
-            ref: v1.13.4
+            ref: v1.14.5
           - elixir: 1.17
             otp: 25
             ref: v1.17.2
 
           - elixir: 1.14
             otp: 23
-            ref: v1.13.4
+            ref: v1.14.5
           - elixir: 1.14
             otp: 23
             ref: v1.17.2
 
           - elixir: 1.12
             otp: 22
-            ref: v1.13.4
+            ref: v1.14.5
           - elixir: 1.12
             otp: 22
+            ref: v1.17.2
+          - elixir: 1.12
+            otp: 23
             ref: v1.17.2
 
     steps:

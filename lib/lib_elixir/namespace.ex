@@ -3,9 +3,9 @@ defmodule LibElixir.Namespace do
 
   alias LibElixir.Namespace
 
-  defstruct [:module, :source_dir, :target_dir, :known_module_names, :targets]
+  defstruct [:module, :source_dir, :target_dir, :known_module_names, :targets, :version]
 
-  @ignore_module_names [Kernel, Access, List, Tuple] |> Enum.map(&to_string/1)
+  @ignore_module_names [Kernel, Access, List, Tuple, String, Regex] |> Enum.map(&to_string/1)
   @ignore_protocol_names [Inspect, Collectable, Enumerable, List.Chars, String.Chars]
                          |> Enum.map(&to_string/1)
 
@@ -51,6 +51,7 @@ defmodule LibElixir.Namespace do
         raise ArgumentError, message: "cannot transform targets: #{inspect(invalid)}"
     end
 
+    Namespace.Abstract.maybe_patch_elixir_erl_pass!(ns.version)
     fan_out_transform(targets, ns, fun)
   end
 
@@ -105,7 +106,8 @@ defmodule LibElixir.Namespace do
       module: module,
       source_dir: source_dir,
       target_dir: target_dir,
-      known_module_names: known_module_names
+      known_module_names: known_module_names,
+      version: Namespace.Versions.fetch_version!(source_dir)
     }
   end
 
