@@ -5,7 +5,7 @@ defmodule LibElixir.Integration.MixProject do
     [
       app: :lib_elixir_integration,
       version: "0.1.0",
-      elixir: "~> 1.13",
+      elixir: "~> 1.12",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       compilers: [:lib_elixir] ++ Mix.compilers(),
