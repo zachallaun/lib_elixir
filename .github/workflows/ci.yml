@@ -65,8 +65,6 @@ jobs:
             otp: 23
           - elixir: 1.13
             otp: 22
-          - elixir: 1.12
-            otp: 22
 
     steps:
       - uses: actions/checkout@v4
@@ -97,16 +95,33 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ref: [v1.13.4, v1.15.4, v1.17.2]
         include:
           - elixir: 1.17
             otp: 27
+            ref: v1.13.4
+          - elixir: 1.17
+            otp: 27
+            ref: v1.17.2
           - elixir: 1.17
             otp: 25
+            ref: v1.13.4
+          - elixir: 1.17
+            otp: 25
+            ref: v1.17.2
+
           - elixir: 1.14
             otp: 23
+            ref: v1.13.4
+          - elixir: 1.14
+            otp: 23
+            ref: v1.17.2
+
           - elixir: 1.12
             otp: 22
+            ref: v1.13.4
+          - elixir: 1.12
+            otp: 22
+            ref: v1.17.2
 
     steps:
       - uses: actions/checkout@v4
