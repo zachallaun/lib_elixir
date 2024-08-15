@@ -68,7 +68,13 @@ defmodule Mix.Tasks.Compile.LibElixir do
 
   defp required_lib_elixir(manifest) do
     with {:ok, config} <- Keyword.fetch(config(), :lib_elixir) do
-      Keyword.validate!(config, [:namespace, :ref, :modules])
+      unexpected = Keyword.drop(config, [:namespace, :ref, :modules])
+
+      unless unexpected == [] do
+        raise ArgumentError,
+              "`:lib_elixir` was configured with unexpected keys: #{inspect(unexpected)}"
+      end
+
       module = config[:namespace] || raise ":lib_elixir config must have `:namespace`"
       ref = config[:ref] || raise ":lib_elixir config must have `:ref`"
       targets = config[:modules] || raise ":lib_elixir config must have `:modules`"
