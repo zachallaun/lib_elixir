@@ -9,11 +9,15 @@ defmodule LibElixir.Integration.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       compilers: [:lib_elixir] ++ Mix.compilers(),
-      lib_elixir: [
-        namespace: LibElixir.V1_17,
-        modules: [Macro.Env],
-        ref: "v1.17.2"
-      ]
+      lib_elixir: lib_elixir()
+    ]
+  end
+
+  defp lib_elixir do
+    [
+      namespace: LibElixir.Integration.LibElixir,
+      modules: [Macro.Env],
+      ref: "v1.17.2"
     ]
   end
 

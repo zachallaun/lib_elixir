@@ -3,10 +3,9 @@ defmodule LibElixir.Integration do
   Integration tests for `LibElixir`.
   """
 
-  alias LibElixir.V1_17.Macro
+  alias LibElixir.Integration.LibElixir.Macro
 
-  def expand_macro_env_alias do
-    env = struct(Macro.Env, Map.from_struct(__ENV__))
-    Macro.Env.expand_alias(env, [], [:Macro, :Env])
+  def env do
+    struct(Macro.Env, Map.from_struct(__ENV__))
   end
 end
