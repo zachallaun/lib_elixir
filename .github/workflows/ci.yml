@@ -1,0 +1,124 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  lint:
+    runs-on: ubuntu-20.04
+    env:
+      MIX_ENV: dev
+    strategy:
+      fail-fast: false
+      matrix:
+        elixir: [1.17]
+        otp: [27]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        id: beam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
+          elixir-version: ${{matrix.elixir}}
+
+      - name: Deps cache
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: mix-deps-${{ hashFiles('**/mix.lock') }}
+
+      - run: mix deps.get
+
+      - run: mix format --check-formatted
+
+      - run: mix deps.unlock --check-unused
+
+      - run: mix deps.compile
+
+      - run: mix compile --warnings-as-errors
+
+  test:
+    runs-on: ubuntu-20.04
+    env:
+      MIX_ENV: test
+    strategy:
+      fail-fast: false
+      matrix:
+        # test against the latest elixir and otp, and then against
+        # every supported version of elixir with its earliest
+        # supported version of otp
+        include:
+          - elixir: 1.17
+            otp: 27
+          - elixir: 1.17
+            otp: 25
+          - elixir: 1.16
+            otp: 24
+          - elixir: 1.15
+            otp: 24
+          - elixir: 1.14
+            otp: 23
+          - elixir: 1.13
+            otp: 22
+          - elixir: 1.12
+            otp: 22
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        id: beam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
+          elixir-version: ${{matrix.elixir}}
+
+      - name: Deps Cache
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: mix-deps-${{ hashFiles('**/mix.lock') }}
+
+      - run: mix deps.get
+
+      - run: mix deps.compile
+
+      - run: mix test
+
+  integration_test:
+    runs-on: ubuntu-20.04
+    env:
+      MIX_ENV: test
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: [v1.13.4, v1.15.4, v1.17.2]
+        include:
+          - elixir: 1.17
+            otp: 27
+          - elixir: 1.17
+            otp: 25
+          - elixir: 1.14
+            otp: 23
+          - elixir: 1.12
+            otp: 22
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        id: beam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
+          elixir-version: ${{matrix.elixir}}
+
+      - name: Run integration test
+        run: ./integration_test/test.sh
+        env:
+          LIB_ELIXIR_REF: ${{matrix.ref}}
