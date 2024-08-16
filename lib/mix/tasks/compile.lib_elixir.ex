@@ -12,15 +12,10 @@ defmodule Mix.Tasks.Compile.LibElixir do
 
   @impl true
   def run(_args) do
-    manifest = get_manifest()
-
-    case required_lib_elixir(manifest) do
-      {:ok, {module, ref, targets}} ->
-        compile(module, ref, targets)
-
-        manifest
-        |> put_in([:libs, module], %{ref: ref, targets: targets})
-        |> write_manifest!()
+    case required_lib_elixir() do
+      {:ok, manifest} ->
+        compile!(manifest)
+        write_manifest!(manifest)
 
         :ok
 
@@ -40,14 +35,49 @@ defmodule Mix.Tasks.Compile.LibElixir do
     :ok
   end
 
-  def compile(module, ref, targets) do
-    artifact = Artifact.prepare!(ref)
+  def compile!(manifest) do
+    artifact = Artifact.prepare!(manifest.ref)
 
     target_directory = Mix.Project.compile_path()
 
-    Namespace.transform!(targets, module, artifact.ebin_directory, target_directory)
+    Namespace.transform!(
+      manifest.module,
+      manifest.targets,
+      manifest.exclusions,
+      artifact.ebin_directory,
+      target_directory
+    )
 
     :ok
+  end
+
+  defp required_lib_elixir do
+    with {:ok, config} <- Keyword.fetch(config(), :lib_elixir) do
+      unexpected = Keyword.drop(config, [:namespace, :ref, :include, :exclude])
+
+      unless unexpected == [] do
+        raise ArgumentError,
+              "`:lib_elixir` was configured with unexpected keys: #{inspect(unexpected)}"
+      end
+
+      module = config[:namespace] || raise ":lib_elixir config must have `:namespace`"
+      ref = config[:ref] || raise ":lib_elixir config must have `:ref`"
+      targets = config[:include] || raise ":lib_elixir config must have `:include`"
+      exclusions = Keyword.get(config, :exclude, [])
+
+      old_manifest = get_manifest()
+      new_manifest = new_manifest(module, ref, targets, exclusions)
+
+      if hash(old_manifest) == hash(new_manifest) do
+        :error
+      else
+        {:ok, new_manifest}
+      end
+    end
+  end
+
+  defp config do
+    Mix.Project.config()
   end
 
   defp manifest_path do
@@ -59,37 +89,33 @@ defmodule Mix.Tasks.Compile.LibElixir do
     |> File.read!()
     |> :erlang.binary_to_term()
   rescue
-    _ -> %{libs: %{}}
+    _ -> new_manifest()
   end
 
   defp write_manifest!(manifest) do
     File.write!(manifest_path(), :erlang.term_to_binary(manifest))
   end
 
-  defp required_lib_elixir(manifest) do
-    with {:ok, config} <- Keyword.fetch(config(), :lib_elixir) do
-      unexpected = Keyword.drop(config, [:namespace, :ref, :modules])
+  defp new_manifest(module \\ nil, ref \\ nil, targets \\ [], exclusions \\ []) do
+    hash = hash(module, ref, targets, exclusions)
 
-      unless unexpected == [] do
-        raise ArgumentError,
-              "`:lib_elixir` was configured with unexpected keys: #{inspect(unexpected)}"
-      end
-
-      module = config[:namespace] || raise ":lib_elixir config must have `:namespace`"
-      ref = config[:ref] || raise ":lib_elixir config must have `:ref`"
-      targets = config[:modules] || raise ":lib_elixir config must have `:modules`"
-
-      manifest_lib = Map.get(manifest.libs, module, %{ref: nil, targets: []})
-
-      if manifest_lib.ref == ref and targets -- manifest_lib.targets == [] do
-        :error
-      else
-        {:ok, {module, ref, targets}}
-      end
-    end
+    %{
+      module: module,
+      ref: ref,
+      targets: targets,
+      exclusions: exclusions,
+      hash: hash
+    }
   end
 
-  defp config do
-    Mix.Project.config()
+  defp hash(%{hash: hash}) when hash != nil, do: hash
+
+  defp hash(module, ref, targets, exclusions) do
+    :erlang.phash2([
+      module,
+      ref,
+      Enum.sort(targets),
+      Enum.sort(exclusions)
+    ])
   end
 end

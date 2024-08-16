@@ -3,7 +3,14 @@ defmodule LibElixir.Namespace do
 
   alias LibElixir.Namespace
 
-  defstruct [:module, :source_dir, :target_dir, :known_module_names, :targets, :version]
+  defstruct [
+    :module,
+    :source_dir,
+    :target_dir,
+    :known_module_names,
+    :exclusion_names,
+    :version
+  ]
 
   @ignore_module_names [Kernel, Access, List, Tuple, String, Regex] |> Enum.map(&to_string/1)
   @ignore_protocol_names [Inspect, Collectable, Enumerable, List.Chars, String.Chars]
@@ -13,12 +20,13 @@ defmodule LibElixir.Namespace do
   Recursively namespaces modules in the `targets` list using `module` as
   the namespace prefix, writing the transformed beams to `target_dir`.
   """
-  def transform!(targets, module, source_dir, target_dir) do
-    ns = new(module, source_dir, target_dir)
+  def transform!(module, targets, exclusions, source_dir, target_dir) do
+    ns = new(module, exclusions, source_dir, target_dir)
 
     :ok = Namespace.App.rewrite(:elixir, ns)
 
-    Mix.shell().info("Namespacing modules (and their dependencies): #{inspect(targets)}")
+    Mix.shell().info("Namespacing modules and their dependencies: #{inspect(targets)}")
+    Mix.shell().info("  Excluding: #{inspect(exclusions)}")
 
     result =
       transform(targets, ns, fn _module, _namespaced, target_path, binary ->
@@ -36,9 +44,9 @@ defmodule LibElixir.Namespace do
 
   Calls `fun` with three arguments: `module, namespaced_module, target_path, binary`.
   """
-  def transform(targets, module, source_dir, target_dir, fun)
+  def transform(module, targets, exclusions, source_dir, target_dir, fun)
       when is_list(targets) and is_atom(module) and is_function(fun, 4) do
-    ns = new(module, source_dir, target_dir)
+    ns = new(module, exclusions, source_dir, target_dir)
     transform(targets, ns, fun)
   end
 
@@ -92,7 +100,7 @@ defmodule LibElixir.Namespace do
     |> fan_out_transform(ns, fun, transformed)
   end
 
-  def new(module, source_dir, target_dir) do
+  def new(module, exclusions, source_dir, target_dir) do
     known_module_names =
       source_dir
       |> Path.join("*")
@@ -102,11 +110,14 @@ defmodule LibElixir.Namespace do
       end)
       |> MapSet.new()
 
+    exclusion_names = Enum.map(exclusions, &Atom.to_string/1) ++ @ignore_module_names
+
     %__MODULE__{
       module: module,
       source_dir: source_dir,
       target_dir: target_dir,
       known_module_names: known_module_names,
+      exclusion_names: exclusion_names,
       version: Namespace.Versions.fetch_version!(source_dir)
     }
   end
@@ -126,11 +137,11 @@ defmodule LibElixir.Namespace do
 
   def should_namespace?(%__MODULE__{} = ns, module) do
     module_name = to_string(module)
-    module_name in ns.known_module_names and not should_ignore?(module_name)
+    module_name in ns.known_module_names and not should_ignore?(ns, module_name)
   end
 
-  defp should_ignore?(module_name) when is_binary(module_name) do
-    module_name in @ignore_module_names or protocol_or_impl?(module_name)
+  defp should_ignore?(%__MODULE__{} = ns, module_name) when is_binary(module_name) do
+    module_name in ns.exclusion_names or protocol_or_impl?(module_name)
   end
 
   # special cases

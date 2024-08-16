@@ -9,7 +9,7 @@ defmodule LibElixir.NamespaceTest do
   setup_all do
     start_supervised!(Patch.Supervisor)
     Patch.patch(Namespace.Versions, :fetch_version!, Version.parse!("1.17.2"))
-    [namespace: Namespace.new(Test.LibElixir, @beams, Path.join(@beams, "target"))]
+    [namespace: Namespace.new(Test.LibElixir, [], @beams, Path.join(@beams, "target"))]
   end
 
   describe "transform/5" do
@@ -24,7 +24,7 @@ defmodule LibElixir.NamespaceTest do
 
       {transformed, _} =
         ExUnit.CaptureLog.with_log(fn ->
-          Namespace.transform([Code], Test.LibElixir, source_dir, target_dir, fun)
+          Namespace.transform(Test.LibElixir, [Code], [], source_dir, target_dir, fun)
         end)
 
       assert is_list(transformed)
@@ -85,6 +85,12 @@ defmodule LibElixir.NamespaceTest do
 
     test "returns false for Kernel", %{namespace: ns} do
       auto_assert false <- Namespace.should_namespace?(ns, Kernel)
+    end
+
+    test "returns false for exclusions", %{namespace: ns} do
+      ns = %{ns | exclusion_names: [to_string(Inspect.Opts)]}
+
+      auto_assert false <- Namespace.should_namespace?(ns, Inspect.Opts)
     end
   end
 

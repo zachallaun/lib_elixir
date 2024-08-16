@@ -27,7 +27,8 @@ Here's how you can try this out:
         lib_elixir: [
           namespace: My.Project.LibElixir,
           ref: "v1.17.2",
-          modules: [Macro, Macro.Env]
+          include: [Macro, Macro.Env],
+          exclude: []
         ]
       ]
     end
