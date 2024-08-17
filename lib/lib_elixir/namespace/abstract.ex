@@ -83,7 +83,11 @@ defmodule LibElixir.Namespace.Abstract do
   """
   def rewrite(abstract_forms, %Namespace{} = ns) when is_list(abstract_forms) do
     {forms, {_ns, deps}} =
-      walk_abstract_forms(abstract_forms, {ns, MapSet.new()}, &rewrite_form/2)
+      walk_abstract_forms(abstract_forms, {ns, MapSet.new()}, fn form, acc ->
+        form
+        |> Namespace.Compatibility.rewrite_form()
+        |> rewrite_form(acc)
+      end)
 
     {forms, deps}
   end

@@ -13,6 +13,28 @@ defmodule LibElixir.Namespace.Compatibility do
   end
 
   @doc """
+  Rewrites abstract forms for better compatibility.
+  """
+  def rewrite_form(form) do
+    form
+    |> rewrite_atom_to_binary()
+  end
+
+  # Handles `atom_to_binary/1`, which wasn't introduced until OTP 23.0.
+  #
+  # Rewrites the abstract form call of `atom_to_binary(Foo)` to the
+  # equivalent `atom_to_binary(Foo, utf8)`.
+  defp rewrite_atom_to_binary({:call, anno, {:atom, _, :atom_to_binary} = atb, [arg1]}) do
+    {:call, anno, atb, [arg1, {:atom, anno_to_line(anno), :utf8}]}
+  end
+
+  defp rewrite_atom_to_binary(other), do: other
+
+  defp anno_to_line({line, _}), do: anno_to_line(line)
+  defp anno_to_line(line) when is_integer(line) and line >= 0, do: line
+  defp anno_to_line(_), do: 0
+
+  @doc """
   Handles a change to the representation of bitstring modifiers in the
   debug_info chunk.
 
