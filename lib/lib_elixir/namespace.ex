@@ -5,7 +5,7 @@ defmodule LibElixir.Namespace do
 
   defstruct [
     :module,
-    :source_dir,
+    :ebin_dir,
     :target_dir,
     :known_module_names,
     :exclusion_names,
@@ -20,8 +20,8 @@ defmodule LibElixir.Namespace do
   Recursively namespaces modules in the `targets` list using `module` as
   the namespace prefix, writing the transformed beams to `target_dir`.
   """
-  def transform!(module, targets, exclusions, source_dir, target_dir) do
-    ns = new(module, exclusions, source_dir, target_dir)
+  def transform!(module, targets, exclusions, ebin_dir, target_dir) do
+    ns = new(module, exclusions, ebin_dir, target_dir)
 
     :ok = Namespace.App.rewrite(:elixir, ns)
 
@@ -44,9 +44,9 @@ defmodule LibElixir.Namespace do
 
   Calls `fun` with three arguments: `module, namespaced_module, target_path, binary`.
   """
-  def transform(module, targets, exclusions, source_dir, target_dir, fun)
+  def transform(module, targets, exclusions, ebin_dir, target_dir, fun)
       when is_list(targets) and is_atom(module) and is_function(fun, 4) do
-    ns = new(module, exclusions, source_dir, target_dir)
+    ns = new(module, exclusions, ebin_dir, target_dir)
     transform(targets, ns, fun)
   end
 
@@ -59,7 +59,7 @@ defmodule LibElixir.Namespace do
         raise ArgumentError, message: "cannot transform targets: #{inspect(invalid)}"
     end
 
-    Namespace.Abstract.maybe_patch_elixir_erl_pass!(ns.version)
+    Namespace.Compatibility.maybe_patch_elixir_erl_pass!(ns.version)
     fan_out_transform(targets, ns, fun)
   end
 
@@ -100,9 +100,9 @@ defmodule LibElixir.Namespace do
     |> fan_out_transform(ns, fun, transformed)
   end
 
-  def new(module, exclusions, source_dir, target_dir) do
+  def new(module, exclusions, ebin_dir, target_dir) do
     known_module_names =
-      source_dir
+      ebin_dir
       |> Path.join("*")
       |> Path.wildcard()
       |> Enum.map(fn path ->
@@ -114,17 +114,17 @@ defmodule LibElixir.Namespace do
 
     %__MODULE__{
       module: module,
-      source_dir: source_dir,
+      ebin_dir: ebin_dir,
       target_dir: target_dir,
       known_module_names: known_module_names,
       exclusion_names: exclusion_names,
-      version: Namespace.Versions.fetch_version!(source_dir)
+      version: Namespace.Compatibility.fetch_version!(ebin_dir)
     }
   end
 
   def source_path(%__MODULE__{} = ns, module, ext \\ "beam") do
     module_name = to_string(module)
-    ns.source_dir |> Path.join("#{module_name}.#{ext}") |> Path.expand()
+    ns.ebin_dir |> Path.join("#{module_name}.#{ext}") |> Path.expand()
   end
 
   def target_path(%__MODULE__{} = ns, namespaced_module, ext \\ "beam") do

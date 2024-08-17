@@ -8,7 +8,7 @@ defmodule LibElixir.NamespaceTest do
 
   setup_all do
     start_supervised!(Patch.Supervisor)
-    Patch.patch(Namespace.Versions, :fetch_version!, Version.parse!("1.17.2"))
+    Patch.patch(Namespace.Compatibility, :fetch_version!, Version.parse!("1.17.2"))
     [namespace: Namespace.new(Test.LibElixir, [], @beams, Path.join(@beams, "target"))]
   end
 
