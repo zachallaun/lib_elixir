@@ -18,7 +18,7 @@ defmodule LibElixir.Integration.MixProject do
 
     [
       namespace: LibElixir.Integration.LibElixir,
-      include: [Macro.Env],
+      include: [Code, Code.Fragment, Macro, Macro.Env, :elixir_tokenizer, Module],
       ref: ref
     ]
   end
